@@ -1,0 +1,17 @@
+# Force GitHub to detect JavaScript
+*.jsx linguist-language=JavaScript
+*.js linguist-language=JavaScript
+*.css linguist-language=CSS
+*.html linguist-language=HTML
+*.scss linguist-language=SCSS
+*.sass linguist-language=SASS
+*.ts -linguist-language
+*.tsx -linguist-language
+
+# Exclude TypeScript detection
+*.d.ts linguist-language=JavaScript
+tsconfig.json linguist-language=JSON
+
+# Exclude TypeScript files from the repository
+*.ts linguist-detectable=false
+*.tsx linguist-detectable=false
