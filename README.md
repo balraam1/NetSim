@@ -78,6 +78,21 @@ For new features, bug fixes, or enhancements:
    - **Backend:** http://localhost:3000
 
 To stop the containers, use `Ctrl+C` in the terminal where it's running, or open another terminal in the directory and run:
-```bash
-docker-compose down
-```
+## Software Design
+
+NetSim follows a modular, protocol-agnostic architecture designed for high-performance file sharing and real-time collaboration.
+
+### Architecture Diagram
+![Architecture Diagram](docs/design/architecture_diagram.drawio.png)
+*This diagram is an editable Draw.io source. To edit, open this file in Draw.io.*
+
+### User Interface Design
+The UI is optimized for professional collaborative environments with a focus on high-utility minimalism.
+- **[View Figma Screens](docs/design/figma_screens/)** (Includes Landing, Home, Room, Private Channels, and File Transfer)
+
+### Key Design Decisions
+1. **Modular Socket Event Handlers**: Logic is isolated into specific handlers (`chat`, `file`, `room`) to ensure **low coupling** and easier scalability.
+2. **WebSocket-Based Chunking**: Implemented `FileReader` chunking (16KB) for file transfers to ensure **seamless data flow** through standard browser ports.
+3. **Dedicated Download Route**: Created a backend endpoint using `res.download()` to force an attachment response, ensuring files **always download directly** instead of opening in tabs.
+4. **Tabbed Feature Architecture**: Grouped features into logical tabs to **reduce cognitive load**, presenting only the tools needed for the current task.
+5. **Centralized Configuration**: All ports and host settings are managed via a single `environment.js` to ensure **guaranteed alignment** across Docker, Backend, and Frontend.
