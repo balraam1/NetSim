@@ -12,7 +12,7 @@ function TopologyCanvas({ topology }) {
     const height = canvas.height
 
     // Clear canvas
-    ctx.fillStyle = "#f5f5f5"
+    ctx.fillStyle = "#0a0a0a"
     ctx.fillRect(0, 0, width, height)
 
     // Calculate node positions
@@ -32,8 +32,8 @@ function TopologyCanvas({ topology }) {
     })
 
     // Draw connections
-    ctx.strokeStyle = "#6366f1"
-    ctx.lineWidth = 2
+    ctx.strokeStyle = "#7b5aff"
+    ctx.lineWidth = 2.5
 
     topology.connections.forEach(conn => {
       const from = nodePositions[conn.from]
@@ -57,17 +57,17 @@ function TopologyCanvas({ topology }) {
 
       ctx.fillStyle =
         user.role === "host"
-          ? "#f59e0b"
+          ? "#f27b53"
           : user.role === "admin"
-            ? "#6366f1"
-            : "#6b7280"
+            ? "#7b5aff"
+            : "#a0a0a0"
       ctx.fill()
       ctx.strokeStyle = "#fff"
-      ctx.lineWidth = 3
+      ctx.lineWidth = 2
       ctx.stroke()
 
-      ctx.fillStyle = "#000"
-      ctx.font = "12px Arial"
+      ctx.fillStyle = "#ffffff"
+      ctx.font = "bold 13px Inter, Arial"
       ctx.textAlign = "center"
       ctx.fillText(user.username, pos.x, pos.y + 45)
     })

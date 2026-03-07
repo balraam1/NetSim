@@ -20,16 +20,12 @@ function PrivateChat({ selectedChannel, messages, mySocketId, onSendMessage }) {
   }
 
   if (!selectedChannel) {
-    return (
-      <div className="no-channel-selected">
-        <p>Select a channel to start chatting</p>
-      </div>
-    )
+    return null
   }
 
   return (
     <div className="private-chat-container">
-      <h3>💬 Private Chat with {selectedChannel.peer.username}</h3>
+      <h3>Private Chat with {selectedChannel.peer.username}</h3>
 
       <div className="messages">
         {(messages || []).map(msg => (

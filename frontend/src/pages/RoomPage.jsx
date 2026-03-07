@@ -48,47 +48,63 @@ function RoomPage() {
       socket.connect();
     }
 
-    socket.emit("get-room-info");
-
-    socket.on("room-info", (data) => {
+    const onRoomInfo = (data) => {
       console.log("📋 Room Info Received:", data);
       setUsers([...(data?.users || [])]);
       setChatLog([...(data?.chatLog || [])]);
       setRole(data?.myRole || "member");
       setLoading(false);
-    });
+    };
 
-    socket.on("new-message", (message) => {
+    const onNewMessage = (message) => {
       console.log("💬 New Message:", message);
       updateChatLog(message);
-    });
+    };
 
-    socket.on("user-joined", (data) => {
+    const onUserJoined = (data) => {
       console.log("✅ User Joined:", data);
       const updatedUsers = data?.users || [];
       console.log("📊 Updated users count:", updatedUsers.length);
       updateUsers(updatedUsers);
-    });
+    };
 
-    socket.on("user-left", (data) => {
+    const onUserLeft = (data) => {
       console.log("👋 User Left:", data);
       const remainingUsers = data?.remainingUsers || [];
       console.log("📊 Remaining users count:", remainingUsers.length);
       updateUsers(remainingUsers);
-    });
+    };
 
-    socket.on("room-closed", (data) => {
+    const onRoomClosed = (data) => {
       console.log("🔒 Room Closed:", data);
       alert(data?.message || "Room has been closed");
       navigate("/");
-    });
+    };
 
-    // 🔥 FIXED: Empty cleanup - NO socket.off() for FileSharing to work
+    const onRoomError = (data) => {
+      console.error("❌ Room Error:", data);
+      navigate("/home");
+    };
+
+    socket.emit("get-room-info");
+
+    socket.on("room-info", onRoomInfo);
+    socket.on("new-message", onNewMessage);
+    socket.on("user-joined", onUserJoined);
+    socket.on("user-left", onUserLeft);
+    socket.on("room-closed", onRoomClosed);
+    socket.on("room-error", onRoomError);
+
     return () => {
       console.log("🧹 Cleaning up RoomPage listeners");
-      // 🔥 DO NOT remove listeners - FileSharing needs them!
+      socket.off("room-info", onRoomInfo);
+      socket.off("new-message", onNewMessage);
+      socket.off("user-joined", onUserJoined);
+      socket.off("user-left", onUserLeft);
+      socket.off("room-closed", onRoomClosed);
+      socket.off("room-error", onRoomError);
     };
-  }, [updateUsers, updateChatLog]);
+  }, [updateUsers, updateChatLog, navigate]);
 
   // Handle send message
   const handleSendMessage = (message) => {
@@ -163,27 +179,27 @@ function RoomPage() {
           className={`tab-button ${activeTab === "public" ? "active" : ""}`}
           onClick={() => setActiveTab("public")}
         >
-          💬 Public Chat
+          Public Chat
         </button>
         <button
           className={`tab-button ${activeTab === "private" ? "active" : ""}`}
           onClick={() => setActiveTab("private")}
         >
-          🔒 Private Channels
+          Private Channels
         </button>
         {/* 🔥 NEW TAB: File Sharing */}
         <button
           className={`tab-button ${activeTab === "files" ? "active" : ""}`}
           onClick={() => setActiveTab("files")}
         >
-          📁 File Sharing
+          File Sharing
         </button>
         {role === "host" && (
           <button
             className={`tab-button ${activeTab === "topology" ? "active" : ""}`}
             onClick={() => setActiveTab("topology")}
           >
-            🔗 Network Graph
+            Network Graph
           </button>
         )}
       </nav>
@@ -214,11 +230,13 @@ function RoomPage() {
 
         {/* PRIVATE CHANNELS TAB */}
         {activeTab === "private" && (
-          <PrivateChannelManager {...privateChannelProps} />
+          <div style={{ display: "flex", flex: 1, padding: "20px", overflowY: "auto", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+            <PrivateChannelManager {...privateChannelProps} />
+          </div>
         )}
 
         {/* 🔥 FILE SHARING TAB (NEW - ALWAYS MOUNTED) */}
-        <div style={{ display: activeTab === "files" ? "block" : "none" }}>
+        <div style={{ display: activeTab === "files" ? "flex" : "none", flex: 1, padding: "20px", overflowY: "auto", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
           <FileSharing
             key={roomId}
             roomId={roomId}
@@ -231,9 +249,11 @@ function RoomPage() {
 
         {/* NETWORK TOPOLOGY TAB (Host Only) */}
         {activeTab === "topology" && role === "host" && (
-          <TopologyGraph
-            topology={topology || { connections: [], users: [] }}
-          />
+          <div style={{ display: "flex", flex: 1, padding: "20px", overflowY: "auto", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+            <TopologyGraph
+              topology={topology || { connections: [], users: [] }}
+            />
+          </div>
         )}
       </div>
     </div>

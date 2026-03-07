@@ -30,12 +30,14 @@ export default function LandingPage() {
             Connect seamlessly with your team in real-time. Share ideas, build together, and see changes instantly.
           </p>
 
-          <button className="explore-button" onClick={() => navigate("/home")}>
-            <span className="button-text">Explore Now</span>
-            <svg className="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-          </button>
+          <div className="hero-pills">
+            <button className="pill-coral" onClick={() => navigate("/home")}>
+              create room
+            </button>
+            <button className="pill-green" onClick={() => navigate("/home")}>
+              join existing &darr;
+            </button>
+          </div>
         </div>
 
         {/* Decorative Elements */}

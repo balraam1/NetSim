@@ -15,7 +15,7 @@ function PrivateChannelSidebar({
 
   return (
     <aside className="private-channel-sidebar">
-      <h3>🔒 Private Channels</h3>
+      <h3>Private Channels</h3>
 
       {availableUsers.length > 0 && (
         <div className="available-users">
@@ -42,9 +42,8 @@ function PrivateChannelSidebar({
           activeChannels.map(channel => (
             <div
               key={channel.channelId}
-              className={`channel-item ${
-                selectedChannel?.channelId === channel.channelId ? "selected" : ""
-              }`}
+              className={`channel-item ${selectedChannel?.channelId === channel.channelId ? "selected" : ""
+                }`}
               onClick={() => onSelectChannel(channel)}
             >
               <span>{channel.peer.username}</span>

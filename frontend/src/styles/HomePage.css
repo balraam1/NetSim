@@ -1,9 +1,15 @@
 :root {
-  --primary: #4f46e5;
-  --secondary: #6366f1;
-  --danger: #ef4444;
-  --gray: #6b7280;
-  --gray-light: #d1d5db;
+  --primary: #7b5aff;
+  --primary-hover: #6a4cdb;
+  --secondary: #f27b53;
+  --success: #40b853;
+  --danger: #f27b53;
+  --bg-main: #0a0a0a;
+  --bg-panel: #151515;
+  --bg-hover: #222222;
+  --border: #333333;
+  --text-main: #ffffff;
+  --text-muted: #a0a0a0;
   --white: #ffffff;
 }
 
@@ -14,6 +20,8 @@
   justify-content: center;
   position: relative;
   overflow: hidden;
+  background: var(--bg-main);
+  color: var(--text-main);
 }
 
 .gradient-background {
@@ -22,17 +30,18 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
+  background: radial-gradient(circle at center, rgba(123, 90, 255, 0.15) 0%, var(--bg-main) 70%);
   z-index: -1;
 }
 
 .card {
-  background: var(--white);
-  border-radius: 12px;
+  background: var(--bg-panel);
+  border-radius: 16px;
+  border: 1px solid var(--border);
   padding: 48px;
   width: 100%;
   max-width: 420px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
   z-index: 10;
 }
 
@@ -42,57 +51,67 @@
 }
 
 .app-title {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--primary);
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--text-main);
   margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+
+.app-title span {
+  color: var(--primary);
 }
 
 .app-subtitle {
-  font-size: 14px;
-  color: var(--gray);
+  font-size: 15px;
+  color: var(--text-muted);
 }
 
 .tab-switcher {
   display: flex;
   gap: 8px;
   margin-bottom: 32px;
-  background: #f3f4f6;
-  padding: 4px;
-  border-radius: 8px;
+  background: var(--bg-hover);
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
 }
 
 .tab-button {
   flex: 1;
-  padding: 10px 16px;
+  padding: 12px 16px;
   border: none;
   background: transparent;
-  color: var(--gray);
+  color: var(--text-muted);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  border-radius: 8px;
+  transition: all 0.3s ease;
 }
 
 .tab-button.active {
-  background: var(--white);
-  color: var(--primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--primary);
+  color: var(--white);
+  box-shadow: 0 4px 12px rgba(123, 90, 255, 0.3);
 }
 
 .tab-button:hover:not(.active) {
-  color: var(--primary);
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .error-banner {
-  background: #fee2e2;
+  background: rgba(242, 123, 83, 0.1);
   color: var(--danger);
   padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 24px;
   font-size: 14px;
   border-left: 4px solid var(--danger);
+  border-top: 1px solid rgba(242, 123, 83, 0.2);
+  border-right: 1px solid rgba(242, 123, 83, 0.2);
+  border-bottom: 1px solid rgba(242, 123, 83, 0.2);
 }
 
 .form-group {
@@ -102,17 +121,21 @@
 .form-group label {
   display: block;
   font-size: 14px;
-  font-weight: 500;
-  color: #1f2937;
+  font-weight: 600;
+  color: var(--text-muted);
   margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .form-group input {
   width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--gray-light);
+  padding: 14px 16px;
+  background: var(--bg-main);
+  border: 1px solid var(--border);
+  color: var(--text-main);
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 15px;
   font-family: inherit;
   transition: all 0.2s ease;
 }
@@ -120,34 +143,37 @@
 .form-group input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  box-shadow: 0 0 0 3px rgba(123, 90, 255, 0.2);
 }
 
 .form-group input:disabled {
-  background: #f3f4f6;
+  background: var(--bg-hover);
+  color: var(--text-muted);
   cursor: not-allowed;
 }
 
 .primary-button {
   width: 100%;
-  padding: 12px 16px;
+  padding: 14px 16px;
   background: var(--primary);
   color: var(--white);
   border: none;
   border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  letter-spacing: 0.5px;
 }
 
 .primary-button:hover:not(:disabled) {
-  background: var(--secondary);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+  background: var(--primary-hover);
+  box-shadow: 0 6px 15px rgba(123, 90, 255, 0.4);
+  transform: translateY(-2px);
 }
 
 .primary-button:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: translateY(0);
 }
 
 .primary-button:disabled {
@@ -163,6 +189,10 @@
 @media (max-width: 480px) {
   .card {
     padding: 32px 24px;
+    border-radius: 0;
+    border: none;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
   }
 
   .app-title {
