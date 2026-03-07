@@ -1,5 +1,8 @@
 const fileService = require('../../services/file.service');
 const path = require('path');
+const fs = require('fs');
+
+const fileStreams = new Map(); // Store write streams for active transfers
 
 function handleFileEvents(io, socket) {
   console.log(`📂 File handler registered for socket: ${socket.id}`);
@@ -40,7 +43,6 @@ function handleFileEvents(io, socket) {
         message: `${protocol} server ready on port ${basePort}`
       });
 
-      // 🔥 REMOVED: logger.fileTransfer() - replace with console
       console.log(`📡 File transfer initialized: ${protocol} @ port ${basePort}`);
 
     } catch (error) {
@@ -51,7 +53,7 @@ function handleFileEvents(io, socket) {
 
   // 🔥 Send file request
   socket.on('send-file', (data) => {
-    const { roomId, fileName, fileSize, protocol, recipientId, fromUsername } = data;
+    const { roomId, fileName, fileSize, protocol, recipientId, fromUsername, transferId } = data;
 
     console.log(`\n${'='.repeat(60)}`);
     console.log(`📤 FILE SEND INITIATED`);
@@ -61,16 +63,13 @@ function handleFileEvents(io, socket) {
     console.log(`🔌 Protocol: ${protocol}`);
     console.log(`👤 From: ${fromUsername} (${socket.id})`);
     console.log(`👥 To: ${recipientId}`);
+    console.log(`🔗 Transfer ID: ${transferId}`);
     console.log(`🏠 Room: ${roomId}`);
-    console.log(`⏱️  Timestamp: ${new Date().toISOString()}`);
     console.log(`${'='.repeat(60)}\n`);
 
     try {
-      fileService.validateFile({
-        fileName,
-        fileSize,
-        mimeType: 'application/pdf'
-      });
+      // Use provided transferId or generate one
+      const finalTransferId = transferId || `${socket.id}-${Date.now()}`;
 
       io.to(recipientId).emit('file-incoming', {
         fromUser: socket.id,
@@ -79,11 +78,10 @@ function handleFileEvents(io, socket) {
         fileSize,
         protocol,
         roomId,
-        transferId: `${socket.id}-${Date.now()}`
+        transferId: finalTransferId
       });
 
       console.log(`✅ File incoming notification sent to ${recipientId}`);
-      // 🔥 REMOVED: logger.fileTransfer()
 
     } catch (error) {
       console.error(`❌ Error sending file:`, error.message);
@@ -99,167 +97,81 @@ function handleFileEvents(io, socket) {
     console.log(`✅ FILE TRANSFER ACCEPTED`);
     console.log(`${'='.repeat(60)}`);
     console.log(`🔗 Transfer ID: ${transferId}`);
-    console.log(`🔌 Protocol: ${protocol}`);
-    console.log(`🔌 Port: ${port}`);
-    console.log(`📍 Socket ID: ${socket.id}`);
-    console.log(`⏱️  Timestamp: ${new Date().toISOString()}`);
-    console.log(`${'='.repeat(60)}\n`);
+    console.log(`💡 SOCKET ID: ${socket.id}`);
 
-    socket.emit('file-transfer-accepted', {
+    // Notify the SENDER that the receiver has accepted
+    // Use lastIndexOf to correctly parse socket ID in case it contains hyphens
+    const lastHyphenIndex = transferId.lastIndexOf('-');
+    const senderSocketId = lastHyphenIndex !== -1 ? transferId.substring(0, lastHyphenIndex) : transferId.split('-')[0];
+
+    io.to(senderSocketId).emit('file-transfer-accepted', {
       transferId,
       protocol,
       port,
-      status: 'ready',
-      message: `Ready to receive on port ${port}`
+      status: 'ready'
     });
 
-    // 🔥 REMOVED: logger.fileTransfer()
+    console.log(`✅ Acceptance sent to sender: ${senderSocketId}`);
   });
 
   // 🔥 Reject file transfer
   socket.on('reject-file', (data) => {
     const { transferId } = data;
+    const lastHyphenIndex = transferId.lastIndexOf('-');
+    const senderSocketId = lastHyphenIndex !== -1 ? transferId.substring(0, lastHyphenIndex) : transferId.split('-')[0];
 
-    console.log(`\n${'='.repeat(60)}`);
-    console.log(`❌ FILE TRANSFER REJECTED`);
-    console.log(`${'='.repeat(60)}`);
-    console.log(`🔗 Transfer ID: ${transferId}`);
-    console.log(`📍 Socket ID: ${socket.id}`);
-    console.log(`⏱️  Timestamp: ${new Date().toISOString()}`);
-    console.log(`${'='.repeat(60)}\n`);
-
-    io.emit('file-transfer-rejected', {
+    io.to(senderSocketId).emit('file-transfer-rejected', {
       transferId,
       reason: 'User rejected'
     });
-
-    // 🔥 REMOVED: logger.fileTransfer()
   });
 
-  // 🔥 File chunk received
+  // 🔥 File chunk received (now actually writing to disk)
   socket.on('file-chunk', (data) => {
-    const { transferId, chunkIndex, totalChunks, chunkSize } = data;
+    const { transferId, chunkIndex, totalChunks, data: base64Data, fileName } = data;
 
-    console.log(`📦 Chunk ${chunkIndex + 1}/${totalChunks} (${chunkSize} bytes) - ${((chunkIndex + 1) / totalChunks * 100).toFixed(1)}%`);
-
-    io.emit('file-chunk-received', {
-      transferId,
-      chunkIndex,
-      progress: ((chunkIndex + 1) / totalChunks) * 100
-    });
-  });
-
-  // 🔥 Get transfer status
-  socket.on('get-transfer-status', (data) => {
-    const { transferId } = data;
-    const status = fileService.getTransferStatus(transferId);
-
-    console.log(`📊 Transfer Status Query: ${transferId}`);
-    console.log(`Status:`, status);
-
-    socket.emit('transfer-status', status || { error: 'Transfer not found' });
-  });
-
-  // 🔥 Retry transfer
-  socket.on('retry-transfer', (data) => {
-    const { transferId } = data;
-    const result = fileService.retryTransfer(transferId);
-
-    console.log(`🔄 Transfer Retry: ${result.message}`);
-    socket.emit('transfer-retry', result);
-  });
-
-  // 🔥 Cancel transfer
-  socket.on('cancel-transfer', (data) => {
-    const { transferId } = data;
-    const result = fileService.cancelTransfer(transferId);
-
-    console.log(`🛑 Transfer Cancelled: ${result.message}`);
-    socket.emit('transfer-cancel', result);
-  });
-
-
-
-
-  // 🔥 Send file request
-socket.on('send-file', (data) => {
-  const { roomId, fileName, fileSize, protocol, recipientId, fromUsername } = data;
-
-  console.log(`\n${'='.repeat(60)}`);
-  console.log(`📤 FILE SEND INITIATED`);
-  console.log(`${'='.repeat(60)}`);
-  console.log(`📁 File: ${fileName}`);
-  console.log(`📊 Size: ${(fileSize / 1024).toFixed(2)} KB`);
-  console.log(`🔌 Protocol: ${protocol}`);
-  console.log(`👤 From: ${fromUsername} (${socket.id})`);
-  console.log(`👥 To: ${recipientId}`);
-  console.log(`🏠 Room: ${roomId}`);
-  console.log(`⏱️  Timestamp: ${new Date().toISOString()}`);
-  console.log(`${'='.repeat(60)}\n`);
-
-  try {
-    fileService.validateFile({
-      fileName,
-      fileSize,
-      mimeType: 'application/pdf'
-    });
-
-    // 🔥 VERIFY RECIPIENT SOCKET EXISTS
-    const recipientSocket = io.sockets.sockets.get(recipientId);
-    
-    if (!recipientSocket) {
-      console.error(`❌ Recipient socket NOT found: ${recipientId}`);
-      console.log(`📍 Available sockets in room ${roomId}:`);
-      
-      const roomSockets = io.sockets.adapter.rooms.get(roomId);
-      if (roomSockets) {
-        roomSockets.forEach((sid) => {
-          console.log(`   - ${sid}`);
-        });
-      }
-      
-      socket.emit('error', { message: `Recipient not connected` });
-      return;
+    if (!fileStreams.has(transferId)) {
+      const uploadsDir = path.join(__dirname, '../../../uploads');
+      const filePath = path.join(uploadsDir, fileName);
+      const writeStream = fs.createWriteStream(filePath);
+      fileStreams.set(transferId, {
+        stream: writeStream,
+        fileName,
+        filePath,
+        chunksReceived: 0
+      });
+      console.log(`💾 Started writing file: ${fileName} (${transferId})`);
     }
 
-    console.log(`✅ Recipient socket VERIFIED: ${recipientId}`);
+    const transfer = fileStreams.get(transferId);
+    if (transfer && transfer.stream) {
+      const buffer = Buffer.from(base64Data, 'base64');
+      transfer.stream.write(buffer);
+      transfer.chunksReceived++;
 
-    // 🔥 SEND TO RECIPIENT
-    io.to(recipientId).emit('file-incoming', {
-      fromUser: socket.id,
-      fromUsername,
-      fileName,
-      fileSize,
-      protocol,
-      roomId,
-      transferId: `${socket.id}-${Date.now()}`
-    });
+      const progress = (transfer.chunksReceived / totalChunks) * 100;
 
-    console.log(`✅ File incoming notification sent to ${recipientId}`);
-
-  } catch (error) {
-    console.error(`❌ Error sending file:`, error.message);
-    socket.emit('error', { message: error.message });
-  }
-});
-
-
+      // Notify about progress
+      socket.emit('file-chunk-received', {
+        transferId,
+        chunkIndex,
+        progress: progress
+      });
+    }
+  });
 
   // 🔥 Complete file transfer
   socket.on('file-transfer-complete', (data) => {
     const { transferId, roomId, fileName, bytesTransferred, protocol } = data;
 
-    console.log(`\n${'='.repeat(60)}`);
-    console.log(`✅ FILE TRANSFER COMPLETE`);
-    console.log(`${'='.repeat(60)}`);
-    console.log(`📁 File: ${fileName}`);
-    console.log(`📊 Total Size: ${(bytesTransferred / 1024 / 1024).toFixed(2)} MB`);
-    console.log(`🔌 Protocol: ${protocol}`);
-    console.log(`🔗 Transfer ID: ${transferId}`);
-    console.log(`🏠 Room: ${roomId}`);
-    console.log(`⏱️  Timestamp: ${new Date().toISOString()}`);
-    console.log(`${'='.repeat(60)}\n`);
+    const transfer = fileStreams.get(transferId);
+    if (transfer) {
+      transfer.stream.end();
+      fileStreams.delete(transferId);
+      console.log(`✅ File finalized and saved: ${fileName}`);
+    }
 
+    // Broadcast to the whole room so everyone sees the history update and the receiver sees the download link
     io.to(roomId).emit('file-received', {
       transferId,
       fileName,
@@ -268,38 +180,22 @@ socket.on('send-file', (data) => {
       status: 'completed',
       timestamp: new Date()
     });
-
-    // 🔥 REMOVED: logger.fileTransfer()
   });
 
   // 🔥 File transfer error
   socket.on('file-transfer-error', (data) => {
     const { transferId, error, protocol } = data;
+    console.error(`❌ FILE TRANSFER ERROR: ${error}`);
 
-    console.error(`\n${'='.repeat(60)}`);
-    console.error(`❌ FILE TRANSFER ERROR`);
-    console.error(`${'='.repeat(60)}`);
-    console.error(`🔗 Transfer ID: ${transferId}`);
-    console.error(`🔌 Protocol: ${protocol}`);
-    console.error(`📝 Error: ${error}`);
-    console.error(`📍 Socket ID: ${socket.id}`);
-    console.error(`⏱️  Timestamp: ${new Date().toISOString()}`);
-    console.error(`${'='.repeat(60)}\n`);
+    if (fileStreams.has(transferId)) {
+      const transfer = fileStreams.get(transferId);
+      transfer.stream.end();
+      fileStreams.delete(transferId);
+    }
 
-    io.emit('file-transfer-error', {
-      transferId,
-      error,
-      protocol
-    });
-
-    // 🔥 REMOVED: logger.fileTransfer()
+    io.emit('file-transfer-error', { transferId, error, protocol });
   });
 
-
-
-  
-
-  // 🔥 Disconnect cleanup
   socket.on('disconnect', () => {
     console.log(`📂 File handler cleaned up for socket: ${socket.id}`);
   });

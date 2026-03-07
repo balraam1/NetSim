@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import socket from "../../../socket"
 import "../../../styles/features/FileSharing.css"
 
@@ -10,6 +10,9 @@ function FileSharing({ roomId, users, currentUsername }) {
   const [selectedFile, setSelectedFile] = useState(null)
   const [protocol, setProtocol] = useState("TCP")
   const [uploading, setUploading] = useState(false)
+  const pendingFilesRef = useRef({})
+  const CHUNK_SIZE = 16384; // 16KB chunks
+
 
   // 🔥 Main useEffect - Socket listeners NEVER CLEANUP
   useEffect(() => {
@@ -61,35 +64,79 @@ function FileSharing({ roomId, users, currentUsername }) {
 
       // 🔥 Browser notification
       if ("Notification" in window && Notification.permission === "granted") {
-        new Notification(`📥 ${data.fromUsername} sent: ${data.fileName}`, {
+        new Notification(`${data.fromUsername} sent: ${data.fileName}`, {
           tag: 'file-incoming',
-          requireInteraction: true,
-          icon: '📁'
+          requireInteraction: true
         });
       }
 
       // 🔥 Show alert
-      alert(`🔔 ${data.fromUsername} wants to send you: ${data.fileName}`);
+      alert(`${data.fromUsername} wants to send you: ${data.fileName}`);
 
       // Set incoming file state
       setIncomingFile(data);
     };
     socket.on("file-incoming", handleFileIncoming);
 
-    // 🔥 Listen for file transfer accepted
+    // 🔥 Listen for file transfer accepted - SENDER SIDE
     const handleFileTransferAccepted = (data) => {
       console.log(`\n${'='.repeat(60)}`);
-      console.log("✅ FILE TRANSFER ACCEPTED");
+      console.log("✅ FILE TRANSFER ACCEPTED - STARTING CHUNKING");
       console.log(`${'='.repeat(60)}`);
       console.log(`🔗 Transfer ID: ${data.transferId}`);
-      console.log(`🔌 Protocol: ${data.protocol}`);
-      console.log(`🔌 Port: ${data.port}`);
-      console.log(`📝 Status: ${data.status}`);
-      console.log(`📝 Message: ${data.message}`);
-      console.log(`⏱️  Timestamp: ${new Date().toISOString()}`);
-      console.log(`${'='.repeat(60)}\n`);
+
+      const file = pendingFilesRef.current[data.transferId];
+      if (!file) {
+        console.error("❌ File not found for transferId:", data.transferId);
+        console.log("Current pending files:", Object.keys(pendingFilesRef.current));
+        return;
+      }
+
+      const reader = new FileReader();
+      let offset = 0;
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+      reader.onload = (e) => {
+        const chunk = e.target.result;
+        const base64Chunk = btoa(
+          new Uint8Array(chunk).reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
+
+        socket.emit("file-chunk", {
+          transferId: data.transferId,
+          chunkIndex: Math.floor(offset / CHUNK_SIZE),
+          totalChunks: totalChunks,
+          chunkSize: chunk.byteLength,
+          data: base64Chunk,
+          roomId: roomId,
+          fileName: file.name
+        });
+
+        offset += CHUNK_SIZE;
+        if (offset < file.size) {
+          readNextChunk();
+        } else {
+          console.log(`✅ All chunks sent for ${file.name}`);
+          socket.emit("file-transfer-complete", {
+            transferId: data.transferId,
+            roomId: roomId,
+            fileName: file.name,
+            bytesTransferred: file.size,
+            protocol: data.protocol
+          });
+          delete pendingFilesRef.current[data.transferId];
+        }
+      };
+
+      const readNextChunk = () => {
+        const slice = file.slice(offset, offset + CHUNK_SIZE);
+        reader.readAsArrayBuffer(slice);
+      };
+
+      readNextChunk();
     };
     socket.on("file-transfer-accepted", handleFileTransferAccepted);
+
 
     // 🔥 Listen for file received
     const handleFileReceived = (data) => {
@@ -111,29 +158,16 @@ function FileSharing({ roomId, users, currentUsername }) {
 
       // Show success notification
       if ("Notification" in window && Notification.permission === "granted") {
-        new Notification(`✅ File received: ${data.fileName}`, {
+        new Notification(`File received: ${data.fileName}`, {
           tag: 'file-received',
-          requireInteraction: true,
-          icon: '✅'
+          requireInteraction: true
         });
       }
 
-      // Show alert with download link
-      alert(`✅ File received! Click to download: ${data.fileName}`);
+      // Show alert with download link (optional, maybe better to just use Notification)
+      // alert(`File received: ${data.fileName}`);
 
-      // Auto-download file
-      try {
-        const link = document.createElement("a");
-        link.href = downloadLink;
-        link.download = data.fileName;
-        link.style.display = "none";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        console.log(`📥 Auto-download initiated for: ${data.fileName}`);
-      } catch (e) {
-        console.error(`❌ Auto-download failed: ${e.message}`);
-      }
+      // Auto-download removed per user request
 
       // Update transfers list
       setTransfers((prev) => [
@@ -177,7 +211,7 @@ function FileSharing({ roomId, users, currentUsername }) {
       console.log(`🔗 Transfer ID: ${data.transferId}`);
       console.log(`📝 Reason: ${data.reason}`);
       console.log(`${'='.repeat(60)}\n`);
-      alert(`❌ File transfer rejected: ${data.reason}`);
+      alert(`File transfer rejected: ${data.reason}`);
     };
     socket.on("file-transfer-rejected", handleFileTransferRejected);
 
@@ -190,7 +224,7 @@ function FileSharing({ roomId, users, currentUsername }) {
       console.error(`🔌 Protocol: ${data.protocol}`);
       console.error(`📝 Error: ${data.error}`);
       console.error(`${'='.repeat(60)}\n`);
-      alert(`❌ Transfer error: ${data.error}`);
+      alert(`Transfer error: ${data.error}`);
     };
     socket.on("file-transfer-error", handleFileTransferError);
 
@@ -224,7 +258,7 @@ function FileSharing({ roomId, users, currentUsername }) {
       console.error(`${'='.repeat(60)}`);
       console.error(`📝 Message: ${data.message}`);
       console.error(`${'='.repeat(60)}\n`);
-      alert(`❌ Error: ${data.message}`);
+      alert(`Error: ${data.message}`);
     };
     socket.on("error", handleError);
 
@@ -295,6 +329,9 @@ function FileSharing({ roomId, users, currentUsername }) {
       });
 
       // 🔥 Step 2: Send file request
+      const transferId = `${socket.id}-${Date.now()}`;
+      pendingFilesRef.current[transferId] = selectedFile; // Store for when it's accepted
+
       console.log(`📤 Step 2: Sending file request to ${selectedRecipient.username}...`);
       socket.emit("send-file", {
         fileName: selectedFile.name,
@@ -302,7 +339,8 @@ function FileSharing({ roomId, users, currentUsername }) {
         protocol: protocol,
         recipientId: selectedRecipient.socketId,
         fromUsername: currentUsername,
-        roomId: roomId
+        roomId: roomId,
+        transferId: transferId
       });
 
       // Add to transfer history
@@ -314,9 +352,11 @@ function FileSharing({ roomId, users, currentUsername }) {
           status: "sending",
           to: selectedRecipient.username,
           type: "sent",
-          timestamp: new Date()
+          timestamp: new Date(),
+          transferId: transferId
         }
       ]);
+
 
       console.log(`✅ Step 2 Complete: File request sent to ${selectedRecipient.username}`);
 
@@ -383,16 +423,14 @@ function FileSharing({ roomId, users, currentUsername }) {
     <div className="file-sharing-container">
       {/* File Transfer History */}
       <div className="transfer-history">
-        <h3>📁 File Transfers</h3>
+        <h3>File Transfers</h3>
         {transfers.length === 0 ? (
           <p className="no-transfers">No file transfers yet</p>
         ) : (
           <div className="transfer-list">
             {transfers.map((transfer, idx) => (
               <div key={idx} className="transfer-item">
-                <span className="transfer-icon">
-                  {transfer.type === "received" ? "📥" : "📤"}
-                </span>
+
                 <div className="transfer-details">
                   <p className="transfer-name">{transfer.fileName}</p>
                   <p className="transfer-meta">
@@ -405,12 +443,11 @@ function FileSharing({ roomId, users, currentUsername }) {
                 {/* 🔥 Download Link */}
                 {transfer.downloadLink && transfer.status === "completed" && (
                   <a
-                    href={transfer.downloadLink}
-                    download={transfer.fileName}
+                    href={`${backendUrl}/api/download/${transfer.fileName}`}
                     className="download-link"
                     title="Download file"
                   >
-                    ⬇️ Download
+                    Download
                   </a>
                 )}
               </div>
@@ -423,7 +460,7 @@ function FileSharing({ roomId, users, currentUsername }) {
       {incomingFile && (
         <div className="incoming-file-notification">
           <div className="notification-content">
-            <h4>📥 Incoming File</h4>
+            <h4>Incoming File</h4>
             <p>
               <strong>{incomingFile.fromUsername}</strong> wants to send you{" "}
               <strong>{incomingFile.fileName}</strong>
@@ -446,7 +483,7 @@ function FileSharing({ roomId, users, currentUsername }) {
 
       {/* Send File Section */}
       <div className="send-file-section">
-        <h3>📤 Send File</h3>
+        <h3>Send File</h3>
         <div className="user-list">
           {users
             .filter((u) => u.username !== currentUsername)
@@ -471,7 +508,7 @@ function FileSharing({ roomId, users, currentUsername }) {
         <div className="modal-overlay">
           <div className="modal-content file-upload-modal">
             <div className="modal-header">
-              <h2>📤 Share File</h2>
+              <h2>Share File</h2>
               <button className="close-btn" onClick={() => setShowModal(false)}>
                 ✕
               </button>
@@ -489,7 +526,7 @@ function FileSharing({ roomId, users, currentUsername }) {
                 />
                 {selectedFile && (
                   <div className="file-info">
-                    <p>📄 {selectedFile.name}</p>
+                    <p>{selectedFile.name}</p>
                     <p className="file-size">
                       {(selectedFile.size / 1024).toFixed(2)} KB
                     </p>
@@ -539,7 +576,7 @@ function FileSharing({ roomId, users, currentUsername }) {
               </div>
 
               <div className="recipient-info">
-                <p>📤 Sending to: <strong>{selectedRecipient.username}</strong></p>
+                <p>Sending to: <strong>{selectedRecipient.username}</strong></p>
                 <p>Protocol: <strong>{protocol}</strong></p>
               </div>
             </div>

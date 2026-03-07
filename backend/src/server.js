@@ -87,6 +87,25 @@ app.get('/info', (req, res) => {
   });
 });
 
+// 🔥 Download endpoint to force "Save As"
+app.get('/api/download/:filename', (req, res) => {
+  const fileName = req.params.filename;
+  const filePath = path.join(uploadsDir, fileName);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  res.download(filePath, fileName, (err) => {
+    if (err) {
+      console.error('❌ Download error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Could not download the file' });
+      }
+    }
+  });
+});
+
 // 🔥 File list endpoint
 app.get('/uploads', (req, res) => {
   fs.readdir(uploadsDir, (err, files) => {
